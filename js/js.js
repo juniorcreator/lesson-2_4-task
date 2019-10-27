@@ -1,6 +1,5 @@
 let step = 5;
 let delay = 30;
-let whatBrowser = navigator.name;
 let createBtn = document.getElementById('create');
 let trash = document.getElementById('trash');
 let totalBalls = document.getElementById('total');
@@ -9,70 +8,62 @@ function BallCreator(trash) {
   this.step = step;
   this.delay = delay;
   this.isCreated = false;
-  this.height = 0;
-  this.width = 0;
-  this.Hoffset = 0;
-  this.Woffset = 0;
+  this.ballOptions = {
+    height: 0,
+    width: 0,
+    Hoffset: 0,
+    Woffset: 0
+  };
   this.pause = true;
-  this.name = navigator.name;
   this.interval = null;
-  this.browser = whatBrowser === 'Microsoft Internet Explorer';
   this.image = null;
   this.randomPosition = () => {
-    let left = Math.floor(Math.random() * window.innerWidth + 1);
-    let top = Math.floor(Math.random() * window.innerHeight + 1);
-    let yon = Math.floor(Math.random() * (1 - 0 + 1)) + 0;
-    let xon = Math.floor(Math.random() * (1 - 0 + 1)) + 0;
-    return {left, top, yon, xon};
+    return {
+      left: Math.floor(Math.random() * window.innerWidth + 1),
+      top: Math.floor(Math.random() * window.innerHeight + 1),
+      yon: Math.floor(Math.random() * 2),
+      xon: Math.floor(Math.random() * 2)
+    };
   };
-  this.yon = this.randomPosition().yon;
-  this.xon = this.randomPosition().xon;
-  this.yPos = this.randomPosition().top;
-  this.xPos = this.randomPosition().left;
+  this.ballPos = {
+    yon: this.randomPosition().yon,
+    xon: this.randomPosition().xon,
+    yPos: this.randomPosition().top,
+    xPos: this.randomPosition().left
+  };
+  this.moveConditions = () => {
+    this.ballPos.yPos = this.ballPos.yon
+        ? this.ballPos.yPos + this.step
+        : this.ballPos.yPos - this.step;
+    this.ballPos.xPos = this.ballPos.xon
+        ? this.ballPos.xPos + this.step
+        : this.ballPos.xPos - this.step;
+
+    if (this.ballPos.yPos < 0) {
+      this.ballPos.yon = 1;
+      this.ballPos.yPos = 0;
+    }
+    if (this.ballPos.yPos >= (this.ballOptions.height - this.ballOptions.Hoffset)) {
+      this.ballPos.yon = 0;
+      this.ballPos.yPos = (this.ballOptions.height - this.ballOptions.Hoffset);
+    }
+    if (this.ballPos.xPos < 0) {
+      this.ballPos.xon = 1;
+      this.ballPos.xPos = 0;
+    }
+    if (this.ballPos.xPos >= (this.ballOptions.width - this.ballOptions.Woffset)) {
+      this.ballPos.xon = 0;
+      this.ballPos.xPos = (this.ballOptions.width - this.ballOptions.Woffset);
+    }
+  };
   this.changePosition = () => {
-    if (this.browser) {
-      this.width = document.body.clientWidth;
-      this.height = document.body.clientHeight;
-      this.Hoffset = this.image.offsetHeight;
-      this.Woffset = this.image.offsetWidth;
-      this.image.style.left = this.xPos + document.body.scrollLeft + 'px';
-      this.image.style.top = this.yPos + document.body.scrollTop + 'px';
-    } else {
-      this.height = window.innerHeight;
-      this.width = window.innerWidth;
-      this.Hoffset = 50;
-      this.Woffset = 50;
-      this.image.style.top = this.yPos + window.pageYOffset + 'px';
-      this.image.style.left = this.xPos + window.pageXOffset + 'px';
-    }
-    if (this.yon) {
-      this.yPos = this.yPos + this.step;
-    }
-    else {
-      this.yPos = this.yPos - this.step;
-    }
-    if (this.yPos < 0) {
-      this.yon = 1;
-      this.yPos = 0;
-    }
-    if (this.yPos >= (this.height - this.Hoffset)) {
-      this.yon = 0;
-      this.yPos = (this.height - this.Hoffset);
-    }
-    if (this.xon) {
-      this.xPos = this.xPos + this.step;
-    }
-    else {
-      this.xPos = this.xPos - this.step;
-    }
-    if (this.xPos < 0) {
-      this.xon = 1;
-      this.xPos = 0;
-    }
-    if (this.xPos >= (this.width - this.Woffset)) {
-      this.xon = 0;
-      this.xPos = (this.width - this.Woffset);
-    }
+    this.ballOptions.height = window.innerHeight;
+    this.ballOptions.width = window.innerWidth;
+    this.ballOptions.Hoffset = 50;
+    this.ballOptions.Woffset = 50;
+    this.image.style.top = this.ballPos.yPos + window.pageYOffset + 'px';
+    this.image.style.left = this.ballPos.xPos + window.pageXOffset + 'px';
+    this.moveConditions();
   };
   this.checkIfAbove = (trash, image) => {
     trash.offsetBottom = trash.offsetTop + trash.offsetHeight;
@@ -101,7 +92,7 @@ function BallCreator(trash) {
       this.pause = true;
     }
   };
-  this.createImgItem = () => {
+  this.addBallToDoom = () => {
     this.isCreated = true;
     let img = document.createElement('img');
     img.setAttribute('class', 'img-item');
@@ -110,49 +101,53 @@ function BallCreator(trash) {
     img.style.visibility = 'hidden';
     document.body.appendChild(img);
     this.image = img;
+  };
+  this.handleMouseup = (context) => {
+    document.onmousemove = null;
+    context.onmouseup = null;
+    if (this.checkIfAbove(trash, context)) {
+      context.remove();
+      getImgLength();
+    }
+    this.pauseResume();
+  };
+  this.handleMousemove = (e, context, shiftX, shiftY) => {
+    this.moveBall(e, shiftX, shiftY);
+    if (this.checkIfAbove(trash, context)) {
+      this.image.classList.add('delete');
+    } else {
+      this.image.classList.remove('delete');
+    }
+  };
+  this.moveBall = (e, shiftX, shiftY) => {
+    this.image.style.left = e.pageX - shiftX + 'px';
+    this.image.style.top = e.pageY - shiftY + 'px';
+    this.ballPos.xPos = e.pageX - shiftX;
+    this.ballPos.yPos = e.pageY - shiftY;
+  };
+  this.createImgItem = () => {
+    let _this = this;
+    this.addBallToDoom();
     setTimeout(() => {this.image.style.visibility = 'visible'},400);
     getImgLength();
-    let _this = this;
     this.image.onmousedown = function (e) {
       let cords = _this.getCoords(this);
       let shiftX = e.pageX - cords.left;
       let shiftY = e.pageY - cords.top;
       document.body.appendChild(this);
-      moveBall(e);
-      this.style.zIndex = 1000;
-      function moveBall(e) {
-        _this.image.style.left = e.pageX - shiftX + 'px';
-        _this.image.style.top = e.pageY - shiftY + 'px';
-        _this.xPos = e.pageX - shiftX;
-        _this.yPos = e.pageY - shiftY;
-      }
+      _this.moveBall(e, shiftX, shiftY);
       _this.pauseResume();
       document.onmousemove = (e) => {
-        moveBall(e);
-        if (_this.checkIfAbove(trash, this)) {
-          _this.image.classList.add('delete');
-        } else {
-          _this.image.classList.remove('delete');
-        }
+        _this.handleMousemove(e, this, shiftX, shiftY);
       };
       this.onmouseup = () => {
-        document.onmousemove = null;
-        this.onmouseup = null;
-        if (_this.checkIfAbove(trash, this)) {
-          this.remove();
-          getImgLength();
-        }
-        _this.pauseResume();
+        _this.handleMouseup(this);
       };
     };
-    this.image.ondragstart = function () {
-      return false;
-    };
+    this.image.ondragstart = function () { return false };
   };
   this.start = () => {
-    if (!this.isCreated) {
-      this.createImgItem();
-    }
+    if (!this.isCreated) { this.createImgItem(); }
     this.interval = setInterval(this.changePosition, delay);
   }
 }
